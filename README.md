@@ -1,2 +1,0 @@
-# zephyr-development
-Zephyr Project
