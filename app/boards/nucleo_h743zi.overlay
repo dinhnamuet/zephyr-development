@@ -72,6 +72,23 @@
         my_storage: partition@0 {
             reg = <0x0 DT_SIZE_K(16)>;
         };
+
+        slot1_partition: partition@4000 {
+            label = "image-1";
+            reg = <0x4000 DT_SIZE_K(256)>;
+        };
+
+        scratch_partition: partition@044000 {
+            label = "image-scratch";
+            reg = <0x44000 DT_SIZE_K(128)>;
+        };
+    };
+};
+
+&flash0 {
+    partitions {
+        /delete-node/ partition@80000;
+        /delete-node/ partition@c0000;
     };
 };
 
