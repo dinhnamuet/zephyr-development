@@ -1,10 +1,10 @@
 #include <zephyr/kernel.h>
 #include <zephyr/zbus/zbus.h>
-#include <zephyr/drivers/flash.h>
 #include <zephyr/logging/log.h>
 
 #include "wdt.h"
 #include "tsensor.h"
+#include "storage.h"
 #include "joystick_hal.h"
 
 LOG_MODULE_REGISTER(DinhNamUET);
@@ -29,37 +29,41 @@ ZBUS_LISTENER_DEFINE(tsensor_listener, listener_callback);
 ZBUS_CHAN_ADD_OBS(joystick_chan, joystick_listener, 3);
 ZBUS_CHAN_ADD_OBS(temp_sensor_chan, tsensor_listener, 3);
 
-static const struct device *const flash = DEVICE_DT_GET(DT_NODELABEL(spi_flash));
-
 int main(void)
 {
-    uint64_t flash_size;
-    uint8_t flash_data[3];
-    const struct flash_parameters *param;
+    int integer_var;
+    unsigned int boot_count;
+    char string_var[17] = { 0 };
 
     watchdog_init(30000);
     watchdog_daemon_start(29000);
     tsensor_polling_start(20000);
 
-    if (!device_is_ready(flash)) {
-        LOG_ERR("Flash %s not found!", flash->name);
-        return -ENODEV;
+    if (storage_init()) {
+        LOG_ERR("Storage init failure");
+        return -EFAULT;
     }
 
-    if (!flash_get_size(flash, &flash_size)) {
-        LOG_INF("%s, size: %lld", flash->name, flash_size);
-    }
-    param = flash_get_parameters(flash);
-    if (param) {
-        LOG_INF("%s, wr_blk_size: %d", flash->name, param->write_block_size);
-        LOG_INF("%s, erase_value: %d", flash->name, param->erase_value);
-    }
-    if (!flash_read(flash, 0, flash_data, 3)) {
-        LOG_INF("%s, first 3 bytes: 0x%x%x%x", flash->name, flash_data[0], flash_data[1], flash_data[2]);
+    if (storage_read(STRING_ID, string_var, 16) < 0) {
+        storage_write(STRING_ID, "hello world!!!!!", 16);
+    } else {
+        LOG_INF("%s", string_var);
     }
 
-    while (true) {
-        k_msleep(5000);
+    if (storage_read(INTEGER_ID, &integer_var, sizeof(int)) < 0) {
+        integer_var = 36;
+        storage_write(INTEGER_ID, &integer_var, sizeof(int));
+    } else {
+        LOG_INF("%d", integer_var);
     }
+
+    if (storage_read(BOOT_COUNT_ID, &boot_count, sizeof(unsigned int)) < 0) {
+        boot_count = 1;
+        storage_write(BOOT_COUNT_ID, &boot_count, sizeof(unsigned int));
+    } else {
+        LOG_INF("%d", boot_count++);
+        storage_write(BOOT_COUNT_ID, &boot_count, sizeof(unsigned int));
+    }
+    
     return 0;
 }
