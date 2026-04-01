@@ -1,0 +1,10 @@
+description: joystick driver
+compatible: "nam-joystick"
+
+include: base.yaml
+
+properties:
+  polling-interval-ms:
+    type: int
+    default: 100
+    description: Interval between two reads, in ms.

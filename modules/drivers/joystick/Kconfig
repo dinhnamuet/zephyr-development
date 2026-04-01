@@ -1,0 +1,6 @@
+config JOYSTICK
+    bool "joystick driver"
+    depends on ADC
+    depends on INPUT
+    help
+      Enable Joystick driver implementation.

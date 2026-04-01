@@ -3,6 +3,15 @@
 		zephyr,console = &usart2;
         zephyr,code-partition = &slot0_partition;
     };
+
+    my_joystick: joystick {
+        compatible = "nam-joystick";
+
+        io-channels = <&adc1 16>, <&adc1 17>;
+        io-channel-names = "adcx", "adcy";
+        polling-interval-ms = <2000>;
+        status = "okay";
+    };
 };
 
 &usart2 {
@@ -14,4 +23,32 @@
 
 &usart3 {
     status = "disabled";
+};
+
+&adc1 {
+    #address-cells = <1>;
+    #size-cells = <0>;
+
+    pinctrl-0 = <&adc1_inp16_pa0 &adc1_inp17_pa1>;
+    pinctrl-names = "default";
+
+    status = "okay";
+
+    channel@10 {
+        reg = <0x10>;
+        zephyr,gain = "ADC_GAIN_1";
+        zephyr,reference = "ADC_REF_INTERNAL";
+        zephyr,vref-mv = <3300>;
+        zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+        zephyr,resolution = <16>;
+    };
+
+    channel@11 {
+        reg = <0x11>;
+        zephyr,gain = "ADC_GAIN_1";
+        zephyr,reference = "ADC_REF_INTERNAL";
+        zephyr,vref-mv = <3300>;
+        zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+        zephyr,resolution = <16>;
+    };
 };
