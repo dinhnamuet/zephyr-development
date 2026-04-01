@@ -16,6 +16,7 @@ LOG_MODULE_REGISTER(serial);
     ((BITS_PER_UART_BYTE * UART_IDLE_BYTE_COUNT * USEC_PER_SEC) / (baud))
 
 struct uart_frame {
+    void *fifo_reserved;
     size_t size;
     uint8_t data[];
 };

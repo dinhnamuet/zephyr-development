@@ -3,6 +3,7 @@
 #include <zephyr/logging/log.h>
 
 #include "wdt.h"
+#include "usb.h"
 #include "tsensor.h"
 #include "storage.h"
 #include "serial.h"
@@ -32,8 +33,8 @@ ZBUS_CHAN_ADD_OBS(temp_sensor_chan, tsensor_listener, 3);
 
 static void serial_received(const uint8_t *data, size_t size)
 {
-    serial_write(data, size);
-    LOG_INF("%s", data);
+    LOG_INF("got %d bytes: %s", size, data);
+    usb_app_send(data, size);
 }
 
 int main(void)
@@ -42,6 +43,7 @@ int main(void)
     watchdog_daemon_start(29000);
     tsensor_polling_start(20000);
     serial_init(serial_received);
+    usb_app_init(serial_received);
     
     return 0;
 }

@@ -1,0 +1,7 @@
+config USB_CUSTOM_CLASS
+    bool "Custom Vendor USB Class"
+    depends on USB_DEVICE_STACK_NEXT
+    depends on NET_BUF
+    help
+      Enable custom vendor USB class implementation.
+      Provides bulk endpoints for bidirectional communication.
