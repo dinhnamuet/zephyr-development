@@ -30,7 +30,8 @@ ZBUS_CHAN_ADD_OBS(temp_sensor_chan, tsensor_listener, 3);
 
 int main(void)
 {
-    watchdog_daemon_start(CONFIG_IWDG_STM32_INITIAL_TIMEOUT - 1000);
+    watchdog_init(30000);
+    watchdog_daemon_start(29000);
     tsensor_polling_start(2000);
     LOG_INF("Enter %s", __func__);
 
