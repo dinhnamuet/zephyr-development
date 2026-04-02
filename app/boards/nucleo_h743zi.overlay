@@ -9,7 +9,7 @@
 
         io-channels = <&adc1 16>, <&adc1 17>;
         io-channel-names = "adcx", "adcy";
-        polling-interval-ms = <2000>;
+        polling-interval-ms = <20000>;
         status = "okay";
     };
 };
@@ -120,6 +120,12 @@
     };
 };
 
-&die_temp {
+&timers2 {
+    st,prescaler = <239>;
     status = "okay";
+
+    test_counter: counter {
+        compatible = "st,stm32-counter";
+        status = "okay";
+    };
 };

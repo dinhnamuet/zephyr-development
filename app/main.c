@@ -6,6 +6,7 @@
 #include "wdt.h"
 #include "usb.h"
 #include "dfu.h"
+#include "counter.h"
 #include "tsensor.h"
 #include "storage.h"
 #include "serial.h"
@@ -33,27 +34,27 @@ ZBUS_LISTENER_DEFINE(tsensor_listener, listener_callback);
 ZBUS_CHAN_ADD_OBS(joystick_chan, joystick_listener, 3);
 ZBUS_CHAN_ADD_OBS(temp_sensor_chan, tsensor_listener, 3);
 
-static void usb_received(const uint8_t *data, size_t size)
+static int counter_cb(uint8_t chan_id, uint32_t us)
 {
-    dfu_handle(data[0], &data[1], size - 1);
+    static unsigned char count;
+    LOG_INF("%d, %dms", chan_id, us/1000);
+    if (count++ > 10)
+        ct_stop();
+    return ALARM_REPEAT;
 }
 
 int main(void)
 {
-    struct mcuboot_img_header header;
-
     boot_write_img_confirmed();
     watchdog_init(30000);
     watchdog_daemon_start(29000);
     tsensor_polling_start(20000);
-    usb_app_init(usb_received);
+    ct_init();
+    ct_set_alarm(0, 5000000, counter_cb);
+    ct_set_alarm(1, 2000000, counter_cb);
+    ct_set_alarm(2, 3000000, counter_cb);
+    ct_set_alarm(3, 4000000, counter_cb);
+    ct_start();
 
-    if (boot_read_bank_header(boot_fetch_active_slot(), &header, sizeof(struct mcuboot_img_header))) {
-        LOG_ERR("ERROR");
-        return -EFAULT;
-    }
-    struct mcuboot_img_sem_ver *semver = &header.h.v1.sem_ver;
-    LOG_INF("IVersion %d.%d.%d-%d", semver->major, semver->minor, semver->revision, semver->build_num);
-    
     return 0;
 }
