@@ -8,7 +8,11 @@
 
 LOG_MODULE_REGISTER(wdt);
 
+#if defined(CONFIG_DT_HAS_ESPRESSIF_ESP32_WATCHDOG_ENABLED)
+static const struct device *const wdt = DEVICE_DT_GET(DT_NODELABEL(wdt0));
+#else
 static const struct device *const wdt = DEVICE_DT_GET(DT_NODELABEL(iwdg1));
+#endif
 
 static void feeder_periodic(struct k_timer *)
 {
@@ -28,7 +32,8 @@ int watchdog_init(unsigned long timeoutms)
     }
     
     cfg.callback = NULL;
-    cfg.flags = 0;
+    cfg.flags = WDT_FLAG_RESET_SOC;
+    cfg.window.min = 0;
     cfg.window.max = timeoutms;
     ret = wdt_install_timeout(wdt, &cfg);
     

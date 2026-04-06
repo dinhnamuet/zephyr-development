@@ -11,11 +11,13 @@ project(
 
 target_include_directories(app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/inc)
 
-file(GLOB APP_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c")
+zephyr_library_sources_ifdef(CONFIG_JOYSTICK src/joystick_hal.c)
+zephyr_library_sources_ifdef(CONFIG_WATCHDOG src/wdt.c)
+zephyr_library_sources_ifdef(CONFIG_USB_CUSTOM_CLASS src/usb.c)
+zephyr_library_sources_ifdef(CONFIG_USB_CUSTOM_CLASS src/dfu.c)
+zephyr_library_sources_ifdef(CONFIG_NVS src/storage.c)
+zephyr_library_sources_ifdef(CONFIG_UART_ASYNC_API src/serial.c)
+zephyr_library_sources_ifdef(CONFIG_COUNTER src/counter.c)
+zephyr_library_sources_ifdef(CONFIG_SENSOR src/tsensor.c)
 
-target_sources(
-    app
-    PRIVATE
-    main.c
-    ${APP_SOURCES}
-)
+target_sources(app PRIVATE main.c)
