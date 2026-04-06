@@ -7,7 +7,7 @@
     my_joystick: joystick {
         compatible = "nam-joystick";
 
-        io-channels = <&adc1 16>, <&adc1 17>;
+        io-channels = <&adc1 16>, <&adc1 15>;
         io-channel-names = "adcx", "adcy";
         polling-interval-ms = <20000>;
         status = "okay";
@@ -34,7 +34,7 @@
 };
 
 &usart2 {
-    pinctrl-0 = <&usart2_tx_pa2 &usart2_rx_pa3>;
+    pinctrl-0 = <&usart2_tx_pd5 &usart2_rx_pd6>;
     pinctrl-names = "default";
     current-speed = <115200>;
     status = "okay";
@@ -96,7 +96,7 @@
     #address-cells = <1>;
     #size-cells = <0>;
 
-    pinctrl-0 = <&adc1_inp16_pa0 &adc1_inp17_pa1>;
+    pinctrl-0 = <&adc1_inp16_pa0 &adc1_inp15_pa3>;
     pinctrl-names = "default";
 
     status = "okay";
@@ -110,8 +110,8 @@
         zephyr,resolution = <16>;
     };
 
-    channel@11 {
-        reg = <0x11>;
+    channel@f {
+        reg = <0x0f>;
         zephyr,gain = "ADC_GAIN_1";
         zephyr,reference = "ADC_REF_INTERNAL";
         zephyr,vref-mv = <3300>;
