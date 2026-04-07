@@ -1,6 +1,11 @@
 #include <zephyr/kernel.h>
 #include <zephyr/zbus/zbus.h>
 #include <zephyr/dfu/mcuboot.h>
+#include <zephyr/net/wifi_mgmt.h>
+#include <zephyr/net/net_if.h>
+#include <zephyr/net/net_event.h>
+#include <zephyr/net/dhcpv4.h>
+#include <zephyr/net/net_ip.h>
 #include <zephyr/logging/log.h>
 
 #include "wdt.h"
@@ -14,54 +19,69 @@
 
 LOG_MODULE_REGISTER(DinhNamUET);
 
-ZBUS_CHAN_DECLARE(joystick_chan);
+#define SSID        "foo"
+#define PSK         "bar"
+#define WIFI_MASK   (NET_EVENT_WIFI_CONNECT_RESULT | \
+                        NET_EVENT_WIFI_DISCONNECT_RESULT)
 
-static void listener_callback(const struct zbus_channel *chan)
+static struct net_mgmt_event_callback wifi_cb;
+static struct net_mgmt_event_callback ipv4_cb;
+
+static void wifi_callback(struct net_mgmt_event_callback *cb, uint64_t evt, struct net_if *intf)
 {
-    if (chan == &joystick_chan) {
-        const struct joystick_data *data;
-        data = zbus_chan_const_msg(chan);
-        LOG_INF("Joystick (%d, %d)", data->x, data->y);
+    if (evt == NET_EVENT_WIFI_CONNECT_RESULT) {
+        net_dhcpv4_start(intf);
+        LOG_INF("Connected");
+    } else if (evt == NET_EVENT_WIFI_DISCONNECT_RESULT) {
+        LOG_INF("Disconnected");
+    } else if (evt == NET_EVENT_IPV4_ADDR_ADD) {
+        struct net_in_addr *addr = net_if_ipv4_get_global_addr(intf, NET_ADDR_PREFERRED);
+        if (addr) {
+            char buf[NET_IPV4_ADDR_LEN];
+            net_addr_ntop(AF_INET, addr, buf, sizeof(buf));
+            printk("Got IPv4 address: %s\n", buf);
+        }
     }
 }
-ZBUS_LISTENER_DEFINE(joystick_listener, listener_callback);
-ZBUS_CHAN_ADD_OBS(joystick_chan, joystick_listener, 3);
 
 int main(void)
 {
-    int integer_var;
-    unsigned int boot_count;
-    char string_var[17] = { 0 };
+    struct net_if *intf;
+    struct wifi_connect_req_params parms;
 
     boot_write_img_confirmed();
     watchdog_init(30000);
     watchdog_daemon_start(29000);
 
-    if (storage_init()) {
-        LOG_ERR("Storage init failure");
+    memset(&parms, 0, sizeof(parms));
+    parms.ssid = SSID;
+    parms.ssid_length = strlen(SSID);
+    parms.psk = PSK;
+    parms.psk_length = strlen(PSK);
+    parms.band = WIFI_FREQ_BAND_2_4_GHZ;
+    parms.channel = WIFI_CHANNEL_ANY;
+    parms.security = WIFI_SECURITY_TYPE_PSK;
+    parms.mfp = WIFI_MFP_DISABLE;
+    parms.timeout = SYS_FOREVER_MS;
+    intf = net_if_get_wifi_sta();
+    if (!intf) {
+        LOG_ERR("Wifi interface not found");
         return -EFAULT;
     }
+    net_mgmt_init_event_callback(&wifi_cb, wifi_callback, WIFI_MASK);
+    net_mgmt_add_event_callback(&wifi_cb);
+    net_mgmt_init_event_callback(&ipv4_cb, wifi_callback, NET_EVENT_IPV4_ADDR_ADD);
+    net_mgmt_add_event_callback(&ipv4_cb);
 
-    if (storage_read(STRING_ID, string_var, 16) < 0) {
-        storage_write(STRING_ID, "hello world!!!!!", 16);
-    } else {
-        LOG_INF("%s", string_var);
+    int ret = net_mgmt(NET_REQUEST_WIFI_CONNECT, intf, &parms, sizeof(parms));
+    if (ret) {
+        LOG_ERR("Wifi connection failed: %d", ret);
+        return -EFAULT;
     }
+    LOG_INF("%s connecting to %s ...!", net_if_get_device(intf)->name, parms.ssid);
 
-    if (storage_read(INTEGER_ID, &integer_var, sizeof(int)) < 0) {
-        integer_var = 36;
-        storage_write(INTEGER_ID, &integer_var, sizeof(int));
-    } else {
-        LOG_INF("%d", integer_var);
+    while (true) {
+        k_sleep(K_SECONDS(10));
     }
-
-    if (storage_read(BOOT_COUNT_ID, &boot_count, sizeof(unsigned int)) < 0) {
-        boot_count = 1;
-        storage_write(BOOT_COUNT_ID, &boot_count, sizeof(unsigned int));
-    } else {
-        LOG_INF("%d", boot_count++);
-        storage_write(BOOT_COUNT_ID, &boot_count, sizeof(unsigned int));
-    }
-
     return 0;
 }
