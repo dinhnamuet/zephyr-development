@@ -19,6 +19,6 @@ zephyr_library_sources_ifdef(CONFIG_NVS src/storage.c)
 zephyr_library_sources_ifdef(CONFIG_UART_ASYNC_API src/serial.c)
 zephyr_library_sources_ifdef(CONFIG_COUNTER src/counter.c)
 zephyr_library_sources_ifdef(CONFIG_SENSOR src/tsensor.c)
-zephyr_library_sources_ifdef(CONFIG_NET_TCP src/tcp_server.c)
+zephyr_library_sources_ifdef(CONFIG_NET_TCP src/tcp_server.c src/dfu.c)
 
 target_sources(app PRIVATE main.c)

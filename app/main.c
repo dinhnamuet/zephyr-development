@@ -47,8 +47,7 @@ static void wifi_callback(struct net_mgmt_event_callback *cb, uint64_t evt, stru
 
 static void tcp_received(int fd, const uint8_t *buf, size_t size)
 {
-    LOG_INF("fd %d: %s", fd,  (char *)buf);
-    tcp_server_send(fd, buf, size);
+    dfu_handle(fd, buf[0], &buf[1], size - 1);
 }
 
 int main(void)
