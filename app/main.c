@@ -7,6 +7,7 @@
 #include <zephyr/net/dhcpv4.h>
 #include <zephyr/net/net_ip.h>
 #include <zephyr/net/http/server.h>
+#include <zephyr/mgmt/updatehub.h>
 #include <zephyr/logging/log.h>
 
 #include "wdt.h"
@@ -22,27 +23,45 @@
 LOG_MODULE_REGISTER(DinhNamUET);
 
 #define TCP_PORT       2026
-#define WIFI_MASK      (NET_EVENT_WIFI_CONNECT_RESULT | \
-                        NET_EVENT_WIFI_DISCONNECT_RESULT)
+#define CONN_TIMEOUT   5000
+#define CONN_NR_TRIES  5
 
-static struct net_mgmt_event_callback wifi_cb;
-static struct net_mgmt_event_callback ipv4_cb;
-static char buf[NET_IPV4_ADDR_LEN];
 K_SEM_DEFINE(wifi_conn, 0, 1);
+K_SEM_DEFINE(net_ready, 0, 1);
+static char ipv4[NET_IPV4_ADDR_LEN];
+static struct net_mgmt_event_callback wifi_cb;
+static struct net_mgmt_event_callback mgmt_cb;
 
 static void wifi_callback(struct net_mgmt_event_callback *cb, uint64_t evt, struct net_if *intf)
 {
-    if (evt == NET_EVENT_WIFI_CONNECT_RESULT) {
-        net_dhcpv4_start(intf);
-    } else if (evt == NET_EVENT_WIFI_DISCONNECT_RESULT) {
-        LOG_INF("Disconnected");
-    } else if (evt == NET_EVENT_IPV4_ADDR_ADD) {
+    switch (evt) {
+    case NET_EVENT_WIFI_CONNECT_RESULT:
+        k_sem_give(&wifi_conn);
+        break;
+
+    case NET_EVENT_WIFI_DISCONNECT_RESULT:
+        LOG_WRN("%s disconnected", net_if_get_device(intf)->name);
+        break;
+    
+    default:
+        break;
+    }
+}
+
+static void net_evt_callback(struct net_mgmt_event_callback *cb, uint64_t evt, struct net_if *intf)
+{
+    switch (evt) {
+    case NET_EVENT_L4_CONNECTED:
         struct net_in_addr *addr = net_if_ipv4_get_global_addr(intf, NET_ADDR_PREFERRED);
         if (addr) {
-            net_addr_ntop(AF_INET, addr, buf, sizeof(buf));
-            printk("IPv4: %s\n", buf);
+            net_addr_ntop(AF_INET, addr, ipv4, sizeof(ipv4));
+            LOG_INF("IPv4: %s", ipv4);
         }
-        k_sem_give(&wifi_conn);
+        k_sem_give(&net_ready);
+        break;
+
+    default:
+        break;
     }
 }
 
@@ -53,6 +72,7 @@ static void tcp_received(int fd, const uint8_t *buf, size_t size)
 
 int main(void)
 {
+    uint8_t tried;
     static uint8_t ssid[20];
     static uint8_t psk[20];
     uint8_t ssid_length, psk_length;
@@ -84,19 +104,29 @@ int main(void)
         LOG_ERR("Wifi interface not found");
         return -EFAULT;
     }
-    net_mgmt_init_event_callback(&wifi_cb, wifi_callback, WIFI_MASK);
+    net_mgmt_init_event_callback(&wifi_cb, wifi_callback, NET_EVENT_WIFI_CONNECT_RESULT | NET_EVENT_WIFI_DISCONNECT_RESULT);
     net_mgmt_add_event_callback(&wifi_cb);
-    net_mgmt_init_event_callback(&ipv4_cb, wifi_callback, NET_EVENT_IPV4_ADDR_ADD);
-    net_mgmt_add_event_callback(&ipv4_cb);
+    net_mgmt_init_event_callback(&mgmt_cb, net_evt_callback, NET_EVENT_L4_CONNECTED);
+    net_mgmt_add_event_callback(&mgmt_cb);
 
-    int ret = net_mgmt(NET_REQUEST_WIFI_CONNECT, intf, &parms, sizeof(parms));
-    if (ret) {
-        LOG_ERR("Wifi connection failed: %d", ret);
+    for (tried = 0; tried < CONN_NR_TRIES; tried++) {
+        LOG_INF("%s connecting to %s (%d/%d)...!", net_if_get_device(intf)->name, parms.ssid, tried + 1, CONN_NR_TRIES);
+		net_mgmt(NET_REQUEST_WIFI_CONNECT, intf, &parms, sizeof(parms));
+
+        if (!k_sem_take(&wifi_conn, K_MSEC(CONN_TIMEOUT))) {
+            break;
+        }
+		LOG_INF("Connect request failed. Waiting %s be up!", net_if_get_device(intf)->name);
+		k_msleep(500);
+	}
+    if (tried >= CONN_NR_TRIES) {
+        LOG_ERR("Failed");
         return -EFAULT;
     }
-    LOG_INF("%s connecting to %s ...!", net_if_get_device(intf)->name, parms.ssid);
-    k_sem_take(&wifi_conn, K_FOREVER);
-    LOG_INF("Connected");
+    net_dhcpv4_start(intf);
+    LOG_INF("Connected, waiting network to ready");
+    k_sem_take(&net_ready, K_FOREVER);
+    updatehub_autohandler();
 
     if (tcp_server_init(TCP_PORT)) {
         LOG_ERR("TCP Init failed");
@@ -112,7 +142,7 @@ int main(void)
         return -EFAULT;
     }
     LOG_INF("HTTP server started on port 80");
-    LOG_INF("Open browser: http://%s/", buf);
+    LOG_INF("Open browser: http://%s/", ipv4);
 
     while (true) {
         k_sleep(K_SECONDS(10));
