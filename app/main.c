@@ -7,7 +7,6 @@
 #include <zephyr/net/dhcpv4.h>
 #include <zephyr/net/net_ip.h>
 #include <zephyr/net/http/server.h>
-#include <zephyr/mgmt/updatehub.h>
 #include <zephyr/logging/log.h>
 
 #include "wdt.h"
@@ -19,6 +18,7 @@
 #include "serial.h"
 #include "joystick_hal.h"
 #include "tcp_server.h"
+#include "updatehub_ota.h"
 
 LOG_MODULE_REGISTER(DinhNamUET);
 
@@ -82,6 +82,7 @@ int main(void)
     boot_write_img_confirmed();
     watchdog_init(30000);
     watchdog_daemon_start(29000);
+    updatehub_init();
 
     storage_init();
     ssid_length = storage_read(WIFI_SSID_ID, NULL, 0);
@@ -126,7 +127,7 @@ int main(void)
     net_dhcpv4_start(intf);
     LOG_INF("Connected, waiting network to ready");
     k_sem_take(&net_ready, K_FOREVER);
-    updatehub_autohandler();
+    updatehub_start();
 
     if (tcp_server_init(TCP_PORT)) {
         LOG_ERR("TCP Init failed");
