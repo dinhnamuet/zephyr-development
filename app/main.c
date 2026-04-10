@@ -6,6 +6,7 @@
 #include <zephyr/net/net_event.h>
 #include <zephyr/net/dhcpv4.h>
 #include <zephyr/net/net_ip.h>
+#include <zephyr/net/http/server.h>
 #include <zephyr/logging/log.h>
 
 #include "wdt.h"
@@ -26,6 +27,7 @@ LOG_MODULE_REGISTER(DinhNamUET);
 
 static struct net_mgmt_event_callback wifi_cb;
 static struct net_mgmt_event_callback ipv4_cb;
+static char buf[NET_IPV4_ADDR_LEN];
 K_SEM_DEFINE(wifi_conn, 0, 1);
 
 static void wifi_callback(struct net_mgmt_event_callback *cb, uint64_t evt, struct net_if *intf)
@@ -37,7 +39,6 @@ static void wifi_callback(struct net_mgmt_event_callback *cb, uint64_t evt, stru
     } else if (evt == NET_EVENT_IPV4_ADDR_ADD) {
         struct net_in_addr *addr = net_if_ipv4_get_global_addr(intf, NET_ADDR_PREFERRED);
         if (addr) {
-            char buf[NET_IPV4_ADDR_LEN];
             net_addr_ntop(AF_INET, addr, buf, sizeof(buf));
             printk("IPv4: %s\n", buf);
         }
@@ -106,6 +107,12 @@ int main(void)
         return -EFAULT;
     }
     LOG_INF("TCP Server Listening at port %d", TCP_PORT);
+    if (http_server_start() < 0) {
+        LOG_ERR("HTTP Server start failed");
+        return -EFAULT;
+    }
+    LOG_INF("HTTP server started on port 80");
+    LOG_INF("Open browser: http://%s/", buf);
 
     while (true) {
         k_sleep(K_SECONDS(10));
