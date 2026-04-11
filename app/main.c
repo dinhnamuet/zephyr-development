@@ -1,7 +1,6 @@
 #include <zephyr/kernel.h>
 #include <zephyr/zbus/zbus.h>
 #include <zephyr/dfu/mcuboot.h>
-#include <zephyr/sys/reboot.h>
 #include <zephyr/net/http/server.h>
 #include <zephyr/logging/log.h>
 
@@ -32,7 +31,6 @@ int main(void)
     updatehub_init();
 
     wifi_init();
-    wifi_connect(NULL, NULL);
     LOG_INF("IPv4: %s", wifi_get_ipv4());
     updatehub_start();
     tcp_server_init(2026);
