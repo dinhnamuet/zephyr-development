@@ -28,9 +28,10 @@ int main(void)
     boot_write_img_confirmed();
     watchdog_init(30000);
     watchdog_daemon_start(29000);
+    wifi_init();
     updatehub_init();
 
-    wifi_init();
+    wifi_connect();
     LOG_INF("IPv4: %s", wifi_get_ipv4());
     updatehub_start();
     tcp_server_init(2026);
