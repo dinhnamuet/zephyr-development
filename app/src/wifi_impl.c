@@ -55,7 +55,7 @@ static void net_evt_callback(struct net_mgmt_event_callback *cb, uint64_t evt, s
     }
 }
 
-static int wifi_connect(struct net_if *intf, struct wifi_connect_req_params *wifi_parms)
+static int __wifi_connect(struct net_if *intf, struct wifi_connect_req_params *wifi_parms)
 {
     int tried;
     for (tried = 0; tried < CONN_NR_TRIES; tried++) {
@@ -99,11 +99,21 @@ static void wifi_cred_ssid_cb(void *args, const char *ssid, size_t ssid_len)
                 &wifi_parms.timeout);
                 
     if (!ret) {
-        wifi_connect(intf, &wifi_parms);
+        __wifi_connect(intf, &wifi_parms);
     }
 }
 
 int wifi_init(void)
+{
+    net_mgmt_init_event_callback(&wifi_cb, wifi_callback, (NET_EVENT_WIFI_CONNECT_RESULT | NET_EVENT_WIFI_DISCONNECT_RESULT));
+    net_mgmt_add_event_callback(&wifi_cb);
+    net_mgmt_init_event_callback(&mgmt_cb, net_evt_callback, NET_EVENT_L4_CONNECTED);
+    net_mgmt_add_event_callback(&mgmt_cb);
+
+    return 0;
+}
+
+int wifi_connect(void)
 {
     struct net_if *intf = net_if_get_wifi_sta();
     if (!intf) {
@@ -114,15 +124,8 @@ int wifi_init(void)
         LOG_ERR("Wifi list is empty");
         return -EINVAL;
     }
-
-    net_mgmt_init_event_callback(&wifi_cb, wifi_callback, (NET_EVENT_WIFI_CONNECT_RESULT | NET_EVENT_WIFI_DISCONNECT_RESULT));
-    net_mgmt_add_event_callback(&wifi_cb);
-    net_mgmt_init_event_callback(&mgmt_cb, net_evt_callback, NET_EVENT_L4_CONNECTED);
-    net_mgmt_add_event_callback(&mgmt_cb);
-
     wifi_credentials_for_each_ssid(wifi_cred_ssid_cb, intf);
-
-    return 0;
+    return wifi_connected ? 0 : -EFAULT;
 }
 
 int wifi_save(const char *ssid, const char *password)
